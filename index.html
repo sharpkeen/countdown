@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Flatpickr CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+
+    <style>
+        /* General Styles */
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: #121212;
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 3rem;
+            text-align: center;
+        }
+
+        /* Notification Banner */
+        #notification {
+            position: fixed;
+            top: 20px;
+            padding: 10px 20px;
+            background: #fc0352;
+            color: white;
+            border-radius: 5px;
+            display: none;
+            z-index: 10;
+        }
+
+        /* Input Section */
+        #input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input,
+        button {
+            padding: 15px;
+            width: 300px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 25px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        input:focus {
+            box-shadow: 0 0 15px rgba(252, 3, 82, 0.8);
+        }
+
+        button {
+            background: #fc0352;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Countdown Container */
+        #countdown {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        /* Circle Design */
+        .circle {
+            position: relative;
+            width: 180px;
+            height: 180px;
+        }
+
+        .circle svg {
+            transform: rotate(0deg);
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Progress Bar Background */
+        .progress-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 10;
+        }
+
+        /* Glowing Progress Bar */
+        .progress-bar {
+            fill: none;
+            stroke: #fc0352;
+            stroke-width: 10;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 440;
+            transition: stroke-dashoffset 0.5s ease;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 8px #fc0352) drop-shadow(0 0 20px #fc0352);
+        }
+
+        /* Countdown Value */
+        .value {
+            font-size: 2.8rem;
+            font-weight: bold;
+            fill: white;
+            text-anchor: middle;
+            dominant-baseline: central;
+            transform: rotate(0deg);
+            /* Fixed Rotation */
+        }
+
+        /* Label for Units */
+        .label {
+            font-size: 1rem;
+            fill: #ccc;
+            text-anchor: middle;
+            transform: rotate(0deg);
+            /* Fixed Rotation */
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .circle {
+                width: 130px;
+                height: 130px;
+            }
+
+            .value {
+                font-size: 2rem;
+            }
+
+            .label {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Notification -->
+    <div id="notification"></div>
+
+    <!-- Input Section -->
+    <div id="input-section">
+        <h1>Countdown Timer</h1>
+        <input type="text" id="countdown-name" placeholder="Event Name">
+        <input type="text" id="countdown-date" placeholder="Pick Date & Time">
+        <button onclick="startCountdown()">Start Countdown</button>
+    </div>
+
+    <!-- Countdown Section -->
+    <div id="countdown">
+        <h1 id="event-title"></h1>
+        <div class="container" id="countdown-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1"></script>
+
+    <script>
+        let countdownDate;
+        const labels = ["Days", "Hours", "Minutes", "Seconds"];
+
+        flatpickr("#countdown-date", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+        });
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            setTimeout(() => {notification.style.display = 'none';}, 3000);
+        }
+
+        function createCircle(label, id) {
+            return `
+                <div class="circle">
+                    <svg>
+                        <!-- Background -->
+                        <circle cx="90" cy="90" r="70" class="progress-bg"></circle>
+                        <!-- Value -->
+                        <text x="90" y="85" id="${id}-value" class="value">00</text>
+                        <!-- Label -->
+                        <text x="90" y="120" class="label">${label}</text>
+                        <!-- Progress Bar -->
+                        <circle cx="90" cy="90" r="70" class="progress-bar" id="${id}-bar"></circle>
+                    </svg>
+                </div>
+            `;
+        }
+
+        function startCountdown() {
+            const name = document.getElementById('countdown-name').value;
+            const date = document.getElementById('countdown-date').value;
+            if (!name || !date) return showNotification('Please enter name and date!');
+
+            countdownDate = new Date(date).getTime();
+            document.getElementById('event-title').innerText = name;
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('countdown').style.display = 'flex';
+
+            const container = document.getElementById('countdown-container');
+            container.innerHTML = labels.map(label => createCircle(label, label.toLowerCase())).join('');
+            setInterval(updateCountdown, 1000);
+        }
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const diff = countdownDate - now;
+
+            if (diff < 0) return;
+
+            const values = [
+                Math.floor(diff / (1000 * 60 * 60 * 24)),
+                Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+                Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+                Math.floor((diff % (1000 * 60)) / 1000)
+            ];
+
+            labels.forEach((label, i) => {
+                const id = label.toLowerCase();
+                document.getElementById(`${id}-value`).textContent = values[i].toString().padStart(2, '0');
+                const percent = (values[i] / (i === 0 ? 30 : i === 1 ? 24 : 60)) * 440;
+                document.getElementById(`${id}-bar`).style.strokeDashoffset = 440 - percent;
+            });
+        }
+        let countdownFinished = false; // To avoid repeated confetti
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const diff = countdownDate - now;
+
+            if (diff <= 0 && !countdownFinished) {
+                countdownFinished = true;
+                triggerConfetti(); // Confetti animation
+                return;
+            }
+
+            const values = [
+                Math.floor(diff / (1000 * 60 * 60 * 24)),
+                Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+                Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+                Math.floor((diff % (1000 * 60)) / 1000)
+            ];
+
+            labels.forEach((label, i) => {
+                const id = label.toLowerCase();
+                document.getElementById(`${id}-value`).textContent = values[i].toString().padStart(2, '0');
+                const percent = (values[i] / (i === 0 ? 30 : i === 1 ? 24 : 60)) * 440;
+                document.getElementById(`${id}-bar`).style.strokeDashoffset = 440 - percent;
+            });
+        }
+
+        function triggerConfetti() {
+            // Hide countdown elements
+            document.getElementById('countdown-container').style.display = 'none'; // Hide countdown circles
+
+            // Show only the heading
+            const heading = document.getElementById('event-title');
+            heading.innerHTML = "🎉 Countdown Finished! 🎉"; // Update heading text
+            heading.style.fontSize = '3rem'; // Make it larger
+            heading.style.color = '#fc0352'; // Highlight color
+
+            // Trigger Confetti Animation
+            const duration = 5 * 1000; // 5 seconds
+            const end = Date.now() + duration;
+
+            const colors = ['#fc0352', '#ffdd57', '#00ffee', '#ff5733'];
+
+            (function frame() {
+                confetti({
+                    particleCount: 7,
+                    angle: 60,
+                    spread: 55,
+                    origin: {x: 0},
+                    colors: colors,
+                });
+                confetti({
+                    particleCount: 7,
+                    angle: 120,
+                    spread: 55,
+                    origin: {x: 1},
+                    colors: colors,
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            })();
+        }
+
+    </script>
+</body>
+
+</html>
